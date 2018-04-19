@@ -12,7 +12,6 @@ namespace Microsoft.AzureGithub
 {
     class AzureApi
     {
-
         static readonly string azureTennant = Environment.GetEnvironmentVariable("AzureTennant");
         public static async Task<(string username, string password)> GetAzureDeployCredentials(GithubRepo repo, Build build)
         {
@@ -126,15 +125,28 @@ namespace Microsoft.AzureGithub
                 resp.EnsureSuccessStatusCode();
 
                 var url = $"https://{build.AzureAppId}.scm.azurewebsites.net/deploy";
+                var cloneUrl = await FormatRepoCloneUrl(repo,build);
                 var payload = new
                 {
                     format = "basic",
-                    url = $"{repo.CloneUrl}#{build.CommitHash}"
+                    url = cloneUrl
                 };
                 resp = await SendMessage(client, url, HttpMethod.Post, payload);
                 data = await resp.Content.ReadAsStringAsync();
                 return resp.IsSuccessStatusCode;
             }
+        }
+
+        static async Task<string> FormatRepoCloneUrl(GithubRepo repo, Build build)
+        {
+            var url = $"{repo.CloneUrl}#{build.CommitHash}";
+
+            if(repo.IsPrivate){
+                await GithubApi.Authenticate(repo);
+                var uri = new Uri(url);
+                url = $"{uri.Host}://{repo.GithubAccount.Token}@{uri.Host}/{uri.PathAndQuery}";
+            }
+            return url;
         }
 
         static Task<HttpResponseMessage> SendMessage(HttpClient client, string path, HttpMethod method, object input, Dictionary<string, string> headers = null)
@@ -172,7 +184,7 @@ namespace Microsoft.AzureGithub
         static string clientId => Environment.GetEnvironmentVariable("AzureClientId");
 
         static string clientSecret => Environment.GetEnvironmentVariable("AzureClientSecret");
-        
+
         public static string AuthUrl(string id,string redirectUrl) =>$"https://login.microsoftonline.com/{azureTennant}/oauth2/authorize?client_id={clientId}&response_type=code&redirect_uri={redirectUrl}&resource=https%3a%2f%2fmanagement.azure.com%2f&state={id}"; 
         public static async Task<bool> Authenticate(GithubRepo repo)
         {

@@ -28,6 +28,9 @@ namespace Microsoft.AzureGithub
         public string Owner { get; set; }
         public string RepoName { get; set; }
         public string CloneUrl { get; set; }
+
+        public bool IsPrivate {get;set;}
+        
         public AzureDetails AzureData { get; set; } = new AzureDetails();
 
         public Account AzureAccount { get; set; } = new Account();

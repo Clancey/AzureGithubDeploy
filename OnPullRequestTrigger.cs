@@ -62,6 +62,7 @@ namespace Microsoft.AzureGithub
                 Id = id,
                 Owner = repData.owner.login,
                 RepoName = repData.Name,
+                IsPrivate = repData.@private,
             };
             try{
             var doc = await Database.CreateRepo(repo);
@@ -97,6 +98,7 @@ namespace Microsoft.AzureGithub
                     Owner = repData.owner.login,
                     RepoName = repData.Name,
                     CloneUrl = repData.clone_url,
+                    IsPrivate = repData.@private,
                     AzureData = {
                         Location = "southcentralus",                    }
                 };

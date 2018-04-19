@@ -23,8 +23,9 @@ namespace Microsoft.AzureGithub
             if(pairing == null)
                 return new BadRequestObjectResult("Invalid ID");
             var repo = await Database.GetRepo(pairing.RepoId);
-            //TODO: Check if Github token is set
-            if(string.IsNullOrWhiteSpace(repo.AzureAccount.Token))
+            
+            //If either account is not logged in, send them to the register page.
+            if(string.IsNullOrWhiteSpace(repo.AzureAccount.Token) || string.IsNullOrWhiteSpace(repo.GithubAccount.Token))
                return new RedirectResult($"{nameof(RegisterRepo)}?state={id}");
                
             //TODO: Check if the Azure Subcription is set.

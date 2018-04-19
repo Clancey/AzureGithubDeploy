@@ -41,6 +41,10 @@ namespace Microsoft.AzureGithub
                 if(string.IsNullOrWhiteSpace(repo.GithubAccount.Token))
                 {
                     //TODO: Github Login
+                    var redirectUrl = $"{req.Scheme}://{req.Host.Value}/api/{nameof(GithubSignIn)}";
+                    redirectUrl = HttpUtility.UrlEncode(redirectUrl);
+                    var url = GithubApi.AuthUrl(id,redirectUrl);
+                    return new RedirectResult(url);
                 }
 
                 if(string.IsNullOrWhiteSpace(repo.AzureData.Subscription))
