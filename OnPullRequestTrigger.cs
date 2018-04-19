@@ -22,7 +22,7 @@ namespace Microsoft.AzureGithub
     public static class OnPullRequestTrigger
     {
         [FunctionName("OnPullRequestTrigger")]
-        public static IActionResult Run([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequest req, TraceWriter log)
+        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequest req, TraceWriter log)
         {
             try{
                 log.Info("C# HTTP trigger function processed a request.");
@@ -35,11 +35,11 @@ namespace Microsoft.AzureGithub
 
 
                 if(eventType == GithubEventTypes.SetupWebHook)
-                    return CreateNewApp(data).Result;
+                    return await CreateNewApp(req, data);
 
                 var action = (string)data.action;
                 if(action == GithubPullRequestActions.Opened)
-                    return CreateNewPullRequest(data).Result;
+                    return await CreateNewPullRequest(data);
                 
                 if(action == GithubPullRequestActions.Updated)
                     return UpdateOldApp(data);
@@ -53,7 +53,7 @@ namespace Microsoft.AzureGithub
             }
         }
 
-        static async Task<IActionResult> CreateNewApp(dynamic data)
+        static async Task<IActionResult> CreateNewApp(HttpRequest req, dynamic data)
         {
             var repData = data.repository;
             var id = Database.CleanseName(repData.full_name.ToString());
@@ -63,8 +63,22 @@ namespace Microsoft.AzureGithub
                 Owner = repData.owner.login,
                 RepoName = repData.Name,
             };
+            try{
             var doc = await Database.CreateRepo(repo);
-            return new BadRequestResult();
+            }
+            catch(Exception)
+            {
+
+            }
+            return await GetRegisterUrl(req,id);
+        }
+
+        static async Task<IActionResult> GetRegisterUrl(HttpRequest req, string repoId)
+        {
+             var paring = await Database.GetOrCreatePairingRequestByRepoId(repoId);
+            var orgUrl = req.Host.Value;
+            var url = $"{req.Scheme}://{orgUrl}/api/RegisterRepo?id={paring.Id}";
+            return new OkObjectResult($"Please go to {url} to register the app with azure.");
         }
         static async Task<IActionResult> CreateNewPullRequest(dynamic data)
         {
@@ -88,6 +102,12 @@ namespace Microsoft.AzureGithub
                 };
                 await Database.CreateRepo(repo);
             }
+            
+            #if DEBUG
+            repo.AzureData.Subscription = Environment.GetEnvironmentVariable("DefaultSubscriptionId");
+            repo.AzureData.AzureToken = Environment.GetEnvironmentVariable("AzureAuthKey");
+            repo.AzureData.Location = "southcentralus";
+            #endif
             if(repo.Builds == null)
                 repo.Builds = new List<Build>();
             var pullRequest = data.pull_request;

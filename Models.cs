@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Microsoft.Azure.Documents;
+using System;
 
 namespace Microsoft.AzureGithub
 {
@@ -56,5 +57,40 @@ namespace Microsoft.AzureGithub
         public string Branch {get;set;}
 
         public string GitUrl {get;set;}
+    }
+
+
+    public class Account : Resource
+    {
+		public string IdToken { get; set; }
+
+        public string Subscription { get; set; }
+
+		public string Token { get; set; }
+
+		public string RefreshToken { get; set; }
+
+		public long ExpiresIn { get; set; }
+		//UTC Datetime created
+		public DateTime Created { get; set; }
+
+        public bool IsValid()
+	    {
+			if (string.IsNullOrWhiteSpace(Token))
+				return false;
+			// This allows you to specify -1 for never expires
+		    if (ExpiresIn <= 0)
+			    return true;
+			if(string.IsNullOrWhiteSpace(RefreshToken))
+				return false;
+            // for simplicity sake, just expire it a 5 min early
+			var expireTime = Created.AddSeconds(ExpiresIn - 300);
+			return expireTime > DateTime.UtcNow;
+		}
+    }
+
+    public class PairingRequest : Resource
+    {
+        public string RepoId { get; set; }
     }
 }
