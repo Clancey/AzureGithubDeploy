@@ -39,10 +39,10 @@ namespace Microsoft.AzureGithub
 
                 var action = (string)data.action;
                 if(action == GithubPullRequestActions.Opened)
-                    return await CreateNewPullRequest(req, data);
+                    return await BuildPullRequest(req, data);
                 
                 if(action == GithubPullRequestActions.Updated)
-                    return UpdateOldApp(data);
+                    return await BuildPullRequest(req,data);
                 else if(action == GithubPullRequestActions.Closed)
                     return CleanupOldApp(data);                
                 return new BadRequestObjectResult($"Not supported action: {action}");
@@ -81,7 +81,7 @@ namespace Microsoft.AzureGithub
             var url = $"{req.Scheme}://{orgUrl}/api/RegisterRepo?id={paring.Id}";
             return new OkObjectResult($"Please go to {url} to register the app with azure.");
         }
-        static async Task<IActionResult> CreateNewPullRequest(HttpRequest req, dynamic data)
+        static async Task<IActionResult> BuildPullRequest(HttpRequest req, dynamic data)
         {
             var repData = data.repository;
             var id = Database.CleanseName(repData.full_name.ToString());
@@ -122,7 +122,7 @@ namespace Microsoft.AzureGithub
                 var paring = await Database.GetOrCreatePairingRequestByRepoId(id);
                 var orgUrl = req.Host.Value;
                 var url = $"{req.Scheme}://{orgUrl}/api/RegisterRepo?id={paring.Id}";
-                await GithubApi.PostStatus(repo,statusUrl,false,url);
+                await GithubApi.PostStatus(repo,statusUrl,false,url,$"You need to log into Azure before auto deploy will work. {url}");
                 return new BadRequestObjectResult($"Please go to {url} to register the app with azure.");
             }
 
@@ -134,13 +134,12 @@ namespace Microsoft.AzureGithub
             { 
                 build = new Build{
                     PullRequestId = number,
-                    CommitHash = pullRequest.head.sha,
-                    StatusUrl = statusUrl,
-                    Branch = pullRequest.head.@ref,
                 };
                 repo.Builds.Add(build);
             }
+            build.CommitHash = pullRequest.head.sha;
             build.Branch = pullRequest.head.@ref;
+            build.StatusUrl = statusUrl;
             //Make sure we have a resource group!
             repo.AzureData.ResourceGroup = await AzureApi.GetOrCreateResourceGroup(repo);
             bool shouldSave = string.IsNullOrWhiteSpace(build.AzureAppId);
@@ -150,15 +149,11 @@ namespace Microsoft.AzureGithub
             await AzureApi.CreateWebApp(repo,build);
             build.DeployedUrl = $"http://{build.AzureAppId}.azurewebsites.net";
             var success = await AzureApi.PublishPullRequst(repo,build);
-            await GithubApi.PostStatus(repo,statusUrl,success,build.DeployedUrl);
+            await GithubApi.PostStatus(repo,statusUrl,success,build.DeployedUrl,success ? $"Deployment was successful! {build.DeployedUrl}" : "There was an error deploying");
             await Database.Save(repo);
             return new OkResult();
         }
-        static IActionResult UpdateOldApp(dynamic data)
-        {
-            //https://docs.microsoft.com/en-us/azure/app-service/scripts/app-service-cli-deploy-github
-            return new BadRequestResult();
-        }
+
         static IActionResult CleanupOldApp(dynamic data)
         {
             return new BadRequestResult();

@@ -12,15 +12,18 @@ namespace Microsoft.AzureGithub
 {
     class GithubApi
     {
-        public static async Task<bool> PostStatus(GithubRepo repo, string statuUrl, bool success, string url)
+        public static async Task<bool> PostStatus(GithubRepo repo, string statuUrl, bool success, string url, string description)
         {
-            using(var client = await CreateClient(repo))
+            using (var client = await CreateClient(repo))
             {
-                var resp = await SendMessage(client,statuUrl,HttpMethod.Post,new {
-                    state = success? "succcess" : "error",
+                var resp = await SendMessage(client, statuUrl, HttpMethod.Post, new
+                {
+                    state = success ? "success" : "error",
+                    description = description,
                     target_url = url,
+                    context = "continuous-integration/AzureDeploy",
                 });
-                var data =  resp.Content.ReadAsStringAsync();
+                var data = await resp.Content.ReadAsStringAsync();
                 resp.EnsureSuccessStatusCode();
                 return true;
             }
@@ -41,20 +44,23 @@ namespace Microsoft.AzureGithub
         {
             if (authenticate)
                 await Authenticate(repo);
-            return new HttpClient
+            var client = new HttpClient
             {
                 BaseAddress = new Uri($"https://api.github.com"),
                 DefaultRequestHeaders = {
                     Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(repo.GithubAccount.TokenType, repo.GithubAccount.Token)
+
                 }
             };
+            client.DefaultRequestHeaders.Add("User-Agent", "AzureDeploy");
+            return client;
         }
 
         static string clientId => Environment.GetEnvironmentVariable("GithubClientId");
 
         static string clientSecret => Environment.GetEnvironmentVariable("GithubClientSecret");
-        
-        public static string AuthUrl(string id,string redirectUrl) =>$"https://github.com/login/oauth/authorize?client_id={clientId}&response_type=code&redirect_uri={redirectUrl}&scope=repo&state={id}"; 
+
+        public static string AuthUrl(string id, string redirectUrl) => $"https://github.com/login/oauth/authorize?client_id={clientId}&response_type=code&redirect_uri={redirectUrl}&scope=repo%20RepoStatus&state={id}";
         public static async Task<bool> Authenticate(GithubRepo repo)
         {
             if (repo.GithubAccount.IsValid())

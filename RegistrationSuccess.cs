@@ -18,10 +18,10 @@ namespace Microsoft.AzureGithub
             log.Info("C# HTTP trigger function processed a request.");
             string id = req.Query["state"];       
             if(string.IsNullOrEmpty(id))
-                return new BadRequestObjectResult("Invalid ID");     
+                return new BadRequestObjectResult("Invalid State");     
             var pairing = await Database.GetPairingRequest(id);
             if(pairing == null)
-                return new BadRequestObjectResult("Invalid ID");
+                return new BadRequestObjectResult("Invalid State");
             var repo = await Database.GetRepo(pairing.RepoId);
             
             //If either account is not logged in, send them to the register page.
