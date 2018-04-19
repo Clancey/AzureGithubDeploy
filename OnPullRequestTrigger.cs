@@ -44,7 +44,7 @@ namespace Microsoft.AzureGithub
                 if(action == GithubPullRequestActions.Updated)
                     return await BuildPullRequest(req,data);
                 else if(action == GithubPullRequestActions.Closed)
-                    return CleanupOldApp(data);                
+                    return await CleanupOldApp(req,data);                
                 return new BadRequestObjectResult($"Not supported action: {action}");
             }
             catch(Exception ex)
@@ -154,9 +154,53 @@ namespace Microsoft.AzureGithub
             return new OkResult();
         }
 
-        static IActionResult CleanupOldApp(dynamic data)
+        static async Task<IActionResult> CleanupOldApp(HttpRequest req, dynamic data)
         {
-            return new BadRequestResult();
+             var repData = data.repository;
+            var id = Database.CleanseName(repData.full_name.ToString());
+            GithubRepo repo;
+            try{
+                repo = await Database.GetRepo(id);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex);
+                repo =  new GithubRepo
+                {
+                    Id = id,
+                    Owner = repData.owner.login,
+                    RepoName = repData.Name,
+                    CloneUrl = repData.clone_url,
+                    IsPrivate = repData.@private,
+                    AzureData = {
+                        Location = "southcentralus",                    }
+                };
+                await Database.CreateRepo(repo);
+            }
+
+            var pullRequest = data.pull_request;
+            string statusUrl = pullRequest.statuses_url;
+
+            var isAuthenticated = await AzureApi.Authenticate(repo);
+            if(!isAuthenticated)
+            {
+                var paring = await Database.GetOrCreatePairingRequestByRepoId(id);
+                var orgUrl = req.Host.Value;
+                var url = $"{req.Scheme}://{orgUrl}/api/RegisterRepo?id={paring.Id}";
+                await GithubApi.PostStatus(repo,statusUrl,false,url,$"You need to log into Azure before auto deploy will work. {url}");
+                return new BadRequestObjectResult($"Please go to {url} to register the app with azure.");
+            }
+
+            if(repo.Builds == null)
+                repo.Builds = new List<Build>();
+            var number = (int)data.number;
+            var build = repo.Builds?.FirstOrDefault(x=> x.PullRequestId == number);
+            if(!string.IsNullOrWhiteSpace(build?.AzureAppId))
+            {
+                await AzureApi.DeleteWebApp(repo,build);                
+                await AzureApi.DeleteAppService(repo,build);
+            }
+            return OkResult();
         }
 
         

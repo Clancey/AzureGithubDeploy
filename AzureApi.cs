@@ -98,9 +98,36 @@ namespace Microsoft.AzureGithub
                         name = build.AzureAppId,
                     }
                 });
+                build.IsActive = true;
                 var data = await resp.Content.ReadAsStringAsync();
                 resp.EnsureSuccessStatusCode();
                 return build.AzureAppId;
+            }
+        }
+
+        public static async Task<bool> DeleteAppService(GithubRepo repo, Build build)
+        {
+            var name = string.IsNullOrWhiteSpace(build.AzureAppId) ? $"{repo.Id}-Pull{build.PullRequestId}-{Guid.NewGuid().ToString().Substring(0, 8)}" : build.AzureAppId.Replace("_", "-");
+            using (var client = await CreateClient(repo))
+            {
+                var path = $"resourceGroups/{repo.AzureData.ResourceGroup}/providers/Microsoft.Web/serverfarms/{name}?api-version=2016-09-01";
+                var resp = await SendMessage(client, path, HttpMethod.Delete, null);
+                var data = await resp.Content.ReadAsStringAsync();
+                resp.EnsureSuccessStatusCode();
+                build.AzureAppId = name;
+                return true;
+            }
+        }
+        public static async Task<bool> DeleteWebApp(GithubRepo repo, Build build)
+        {
+            using (var client = await CreateClient(repo))
+            {
+                var path = $"resourceGroups/{repo.AzureData.ResourceGroup}/providers/Microsoft.Web/sites/{build.AzureAppId}?api-version=2016-08-01";
+                var resp = await SendMessage(client, path, HttpMethod.Delete, null);
+                var data = await resp.Content.ReadAsStringAsync();
+                resp.EnsureSuccessStatusCode();
+                build.IsActive = false;
+                return true;
             }
         }
 
@@ -125,7 +152,7 @@ namespace Microsoft.AzureGithub
                 resp.EnsureSuccessStatusCode();
 
                 var url = $"https://{build.AzureAppId}.scm.azurewebsites.net/deploy";
-                var cloneUrl = await FormatRepoCloneUrl(repo,build);
+                var cloneUrl = await FormatRepoCloneUrl(repo, build);
                 var payload = new
                 {
                     format = "basic",
@@ -141,7 +168,8 @@ namespace Microsoft.AzureGithub
         {
             var url = $"{repo.CloneUrl}#{build.CommitHash}";
 
-            if(repo.IsPrivate){
+            if (repo.IsPrivate)
+            {
                 await GithubApi.Authenticate(repo);
                 var uri = new Uri(url);
                 url = $"{uri.Host}://{repo.GithubAccount.Token}@{uri.Host}/{uri.PathAndQuery}";
@@ -153,8 +181,11 @@ namespace Microsoft.AzureGithub
         {
             var request = new HttpRequestMessage(method, path);
             request.Headers.Add("Accept", "application/json");
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(input);
-            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            if (input != null)
+            {
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(input);
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            }
             if (headers != null)
                 foreach (var pair in headers)
                     request.Headers.Add(pair.Key, pair.Value);
@@ -185,7 +216,7 @@ namespace Microsoft.AzureGithub
 
         static string clientSecret => Environment.GetEnvironmentVariable("AzureClientSecret");
 
-        public static string AuthUrl(string id,string redirectUrl) =>$"https://login.microsoftonline.com/{azureTennant}/oauth2/authorize?client_id={clientId}&response_type=code&redirect_uri={redirectUrl}&resource=https%3a%2f%2fmanagement.azure.com%2f&state={id}"; 
+        public static string AuthUrl(string id, string redirectUrl) => $"https://login.microsoftonline.com/{azureTennant}/oauth2/authorize?client_id={clientId}&response_type=code&redirect_uri={redirectUrl}&resource=https%3a%2f%2fmanagement.azure.com%2f&state={id}";
         public static async Task<bool> Authenticate(GithubRepo repo)
         {
             if (repo.AzureAccount.IsValid())
