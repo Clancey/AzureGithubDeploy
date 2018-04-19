@@ -26,6 +26,7 @@ namespace Microsoft.AzureGithub
                 
                 var pairing = await Database.GetPairingRequest(id);
                 var repo = await Database.GetRepo(pairing.RepoId);
+                
 
                 return new BadRequestObjectResult("Please pass a name on the query string or in the request body");
             }
