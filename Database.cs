@@ -64,32 +64,6 @@ namespace Microsoft.AzureGithub
             }
         }
 
-        //  public static async Task<PairingRequest> GetOrCreatePairingRequestByRepoId(string id)
-        // {
-        //     var collectionLink = UriFactory.CreateDocumentCollectionUri(databaseId, authCollectionId);
-        //     using (var client = new DocumentClient(new Uri(endpointUrl), authorizationKey))
-        //     {
-        //         PairingRequest request;
-        //         try
-        //         {
-        //             request = client.CreateDocumentQuery<PairingRequest>(collectionLink).FirstOrDefault(x => x.RepoId == id);
-        //             if (request != null)
-        //                 return request;
-        //         }
-        //         catch (Exception)
-        //         {
-
-        //         }
-        //         request = new PairingRequest
-        //         {
-        //             RepoId = id,
-        //             Id = Guid.NewGuid().ToString(),
-        //         };
-        //         var doc = await client.CreateDocumentAsync(collectionLink, request);
-        //         return request;
-        //     }
-        // }
-
         public static async Task<PairingRequest> GetPairingRequest(string id)
         {
             using (var client = new DocumentClient(new Uri(endpointUrl), authorizationKey))

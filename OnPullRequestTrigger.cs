@@ -39,7 +39,7 @@ namespace Microsoft.AzureGithub
 
                 var action = (string)data.action;
                 if(action == GithubPullRequestActions.Opened)
-                    return await CreateNewPullRequest(data);
+                    return await CreateNewPullRequest(req, data);
                 
                 if(action == GithubPullRequestActions.Updated)
                     return UpdateOldApp(data);
@@ -75,12 +75,12 @@ namespace Microsoft.AzureGithub
 
         static async Task<IActionResult> GetRegisterUrl(HttpRequest req, string repoId)
         {
-             var paring = await Database.GetOrCreatePairingRequestByRepoId(repoId);
+            var paring = await Database.GetOrCreatePairingRequestByRepoId(repoId);
             var orgUrl = req.Host.Value;
             var url = $"{req.Scheme}://{orgUrl}/api/RegisterRepo?id={paring.Id}";
             return new OkObjectResult($"Please go to {url} to register the app with azure.");
         }
-        static async Task<IActionResult> CreateNewPullRequest(dynamic data)
+        static async Task<IActionResult> CreateNewPullRequest(HttpRequest req, dynamic data)
         {
             var repData = data.repository;
             var id = Database.CleanseName(repData.full_name.ToString());
@@ -102,12 +102,14 @@ namespace Microsoft.AzureGithub
                 };
                 await Database.CreateRepo(repo);
             }
-            
-            #if DEBUG
-            repo.AzureData.Subscription = Environment.GetEnvironmentVariable("DefaultSubscriptionId");
-            repo.AzureData.AzureToken = Environment.GetEnvironmentVariable("AzureAuthKey");
-            repo.AzureData.Location = "southcentralus";
-            #endif
+            var isAuthenticated = await AzureApi.Authenticate(repo);
+            if(!isAuthenticated)
+            {
+                var paring = await Database.GetOrCreatePairingRequestByRepoId(id);
+                var orgUrl = req.Host.Value;
+                var url = $"{req.Scheme}://{orgUrl}/api/RegisterRepo?id={paring.Id}";
+                return new BadRequestObjectResult($"Please go to {url} to register the app with azure.");
+            }
             if(repo.Builds == null)
                 repo.Builds = new List<Build>();
             var pullRequest = data.pull_request;

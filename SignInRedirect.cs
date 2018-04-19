@@ -21,14 +21,16 @@ namespace Microsoft.AzureGithub
                 if(id == null)
                     return new BadRequestObjectResult("Invalid state");
                 string code = req.Query["code"]; 
-                if(id == null)
+                if(code == null)
                     return new BadRequestObjectResult("Invalid code");
                 
                 var pairing = await Database.GetPairingRequest(id);
                 var repo = await Database.GetRepo(pairing.RepoId);
-                
 
-                return new BadRequestObjectResult("Please pass a name on the query string or in the request body");
+                var orgRedirect = new Uri(Microsoft.AspNetCore.Http.Extensions.UriHelper.GetEncodedUrl(req));                
+                var redirectUrl = $"{req.Scheme}://{req.Host.Value}/api/{nameof(SignInRedirect)}";
+                var success = await AzureApi.Authenticate(repo,code,redirectUrl);
+                return success ? (IActionResult)new RedirectResult($"{nameof(RegistrationSuccess)}?state={id}") :new BadRequestObjectResult("There was an error logging in. Please try again.");
             }
             catch(Exception e)
             {

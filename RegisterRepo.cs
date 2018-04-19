@@ -16,6 +16,7 @@ namespace Microsoft.AzureGithub
 {
     public static class RegisterRepo
     {
+
         [FunctionName("RegisterRepo")]
         public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", Route = null)]HttpRequest req, TraceWriter log)
         {
@@ -30,10 +31,23 @@ namespace Microsoft.AzureGithub
                     return new BadRequestObjectResult("Invalid ID");
                 var repo = await Database.GetRepo(pairing.RepoId);
                 
-                var redirectUrl = $"{req.Scheme}://{req.Host.Value}/api/SignInRedirect";
-                redirectUrl = HttpUtility.UrlEncode(redirectUrl);
-                var url = $"https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/authorize?client_id=576f04f2-6e7b-4d6b-ae9f-5462653f341b&response_type=code&redirect_uri={redirectUrl}&resource=https%3a%2f%2fmanagement.azure.com%2f&state={id}";
-                return new RedirectResult(url);
+                if(string.IsNullOrWhiteSpace(repo.AzureAccount.Token)){
+                    var redirectUrl = $"{req.Scheme}://{req.Host.Value}/api/{nameof(SignInRedirect)}";
+                    redirectUrl = HttpUtility.UrlEncode(redirectUrl);
+                    var url = AzureApi.AuthUrl(id,redirectUrl);
+                    return new RedirectResult(url);
+                }
+
+                if(string.IsNullOrWhiteSpace(repo.GithubAccount.Token))
+                {
+                    //TODO: Github Login
+                }
+
+                if(string.IsNullOrWhiteSpace(repo.AzureData.Subscription))
+                {                    
+                    //TODO: Set azure subscription
+                }
+                return new RedirectResult($"{nameof(RegistrationSuccess)}?state={id}");
 
             }
             catch (Exception ex)
