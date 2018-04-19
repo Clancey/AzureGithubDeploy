@@ -28,10 +28,11 @@ namespace Microsoft.AzureGithub
             if(string.IsNullOrWhiteSpace(repo.AzureAccount.Token) || string.IsNullOrWhiteSpace(repo.GithubAccount.Token))
                return new RedirectResult($"{nameof(RegisterRepo)}?state={id}");
                
-            //TODO: Check if the Azure Subcription is set.
+            //Check if the Azure Subcription is set.
             if(string.IsNullOrWhiteSpace(repo.AzureData.Subscription))
-            {                    
-                //TODO: output register subscription url
+            {                  
+                var redirectUrl = $"{req.Scheme}://{req.Host.Value}/api/{nameof(Settings)}?id={id}&AzureSubscriptionId=YourSubscriptionId";
+                return new OkObjectResult($"You still need to set your Azure Subscription. Edit the URL to include your Azure subscription ID {redirectUrl} and navigate there.");
             }
             return new OkObjectResult($"Success, {repo.RepoName} is now registered");
         }

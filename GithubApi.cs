@@ -12,14 +12,16 @@ namespace Microsoft.AzureGithub
 {
     class GithubApi
     {
-        public static async Task<bool> PostStatus(GithubRepo repo, Build build, bool success, string url)
+        public static async Task<bool> PostStatus(GithubRepo repo, string statuUrl, bool success, string url)
         {
             using(var client = await CreateClient(repo))
             {
-                var resp = await SendMessage(client,build.StatusUrl,HttpMethod.Post,new {
+                var resp = await SendMessage(client,statuUrl,HttpMethod.Post,new {
                     state = success? "succcess" : "error",
                     target_url = url,
                 });
+                var data =  resp.Content.ReadAsStringAsync();
+                resp.EnsureSuccessStatusCode();
                 return true;
             }
         }

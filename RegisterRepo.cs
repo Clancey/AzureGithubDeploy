@@ -40,7 +40,6 @@ namespace Microsoft.AzureGithub
 
                 if(string.IsNullOrWhiteSpace(repo.GithubAccount.Token))
                 {
-                    //TODO: Github Login
                     var redirectUrl = $"{req.Scheme}://{req.Host.Value}/api/{nameof(GithubSignIn)}";
                     redirectUrl = HttpUtility.UrlEncode(redirectUrl);
                     var url = GithubApi.AuthUrl(id,redirectUrl);
@@ -48,8 +47,9 @@ namespace Microsoft.AzureGithub
                 }
 
                 if(string.IsNullOrWhiteSpace(repo.AzureData.Subscription))
-                {                    
-                    //TODO: Set azure subscription
+                {
+                    var redirectUrl = $"{req.Scheme}://{req.Host.Value}/api/{nameof(Settings)}?id={id}&AzureSubscriptionId=YourSubscriptionId";
+                    return new OkObjectResult($"You still need to set your Azure Subscription. Edit the URL to include your Azure subscription ID {redirectUrl} and navigate there.");
                 }
                 return new RedirectResult($"{nameof(RegistrationSuccess)}?state={id}");
 

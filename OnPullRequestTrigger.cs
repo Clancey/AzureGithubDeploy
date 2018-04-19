@@ -104,17 +104,30 @@ namespace Microsoft.AzureGithub
                 };
                 await Database.CreateRepo(repo);
             }
+
+            var pullRequest = data.pull_request;
+            string statusUrl = pullRequest.statuses_url;
+            var isGithubAuthenticated = await GithubApi.Authenticate(repo);
+            if(!isGithubAuthenticated)
+            {
+                var paring = await Database.GetOrCreatePairingRequestByRepoId(id);
+                var orgUrl = req.Host.Value;
+                var url = $"{req.Scheme}://{orgUrl}/api/RegisterRepo?id={paring.Id}";
+                return new BadRequestObjectResult($"Please go to {url} to register the app with Github.");
+            }
+
             var isAuthenticated = await AzureApi.Authenticate(repo);
             if(!isAuthenticated)
             {
                 var paring = await Database.GetOrCreatePairingRequestByRepoId(id);
                 var orgUrl = req.Host.Value;
                 var url = $"{req.Scheme}://{orgUrl}/api/RegisterRepo?id={paring.Id}";
+                await GithubApi.PostStatus(repo,statusUrl,false,url);
                 return new BadRequestObjectResult($"Please go to {url} to register the app with azure.");
             }
+
             if(repo.Builds == null)
                 repo.Builds = new List<Build>();
-            var pullRequest = data.pull_request;
             var number = (int)data.number;
             var build = repo.Builds?.FirstOrDefault(x=> x.PullRequestId == number);
             if(build == null)
@@ -122,7 +135,7 @@ namespace Microsoft.AzureGithub
                 build = new Build{
                     PullRequestId = number,
                     CommitHash = pullRequest.head.sha,
-                    StatusUrl = pullRequest.statuses_url,
+                    StatusUrl = statusUrl,
                     Branch = pullRequest.head.@ref,
                 };
                 repo.Builds.Add(build);
@@ -137,7 +150,7 @@ namespace Microsoft.AzureGithub
             await AzureApi.CreateWebApp(repo,build);
             build.DeployedUrl = $"http://{build.AzureAppId}.azurewebsites.net";
             var success = await AzureApi.PublishPullRequst(repo,build);
-            
+            await GithubApi.PostStatus(repo,statusUrl,success,build.DeployedUrl);
             await Database.Save(repo);
             return new OkResult();
         }
