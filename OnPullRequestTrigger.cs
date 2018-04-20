@@ -49,6 +49,7 @@ namespace Microsoft.AzureGithub
             }
             catch(Exception ex)
             {
+                log.Error("OnPullRequestTrigger",ex);
                 return new BadRequestObjectResult(ex);
             }
         }
@@ -140,6 +141,9 @@ namespace Microsoft.AzureGithub
             build.CommitHash = pullRequest.head.sha;
             build.Branch = pullRequest.head.@ref;
             build.StatusUrl = statusUrl;
+            string buildUrl = pullRequest.head.repo.clone_url;
+            if(repo.CloneUrl != buildUrl)
+                build.GitUrl = buildUrl;
             //Make sure we have a resource group!
             repo.AzureData.ResourceGroup = await AzureApi.GetOrCreateResourceGroup(repo);
             bool shouldSave = string.IsNullOrWhiteSpace(build.AzureAppId);
@@ -200,7 +204,7 @@ namespace Microsoft.AzureGithub
                 await AzureApi.DeleteWebApp(repo,build);                
                 await AzureApi.DeleteAppService(repo,build);
             }
-            return OkResult();
+            return new OkResult();
         }
 
         

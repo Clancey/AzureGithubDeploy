@@ -166,7 +166,8 @@ namespace Microsoft.AzureGithub
 
         static async Task<string> FormatRepoCloneUrl(GithubRepo repo, Build build)
         {
-            var url = $"{repo.CloneUrl}#{build.CommitHash}";
+            var baseUrl = string.IsNullOrWhiteSpace(build.GitUrl) ? repo.CloneUrl : build.GitUrl;
+            var url = $"{baseUrl}#{build.CommitHash}";
 
             if (repo.IsPrivate)
             {
