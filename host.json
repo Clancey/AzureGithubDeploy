@@ -1,2 +1,19 @@
 {
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "",
+        "AzureWebJobsDashboard": "",
+        "azuregithubtest_DOCUMENTDB": "AccountEndpoint=",
+        "Endpoint": "",
+        "AuthKey" : "",
+        "DatabaseId": "Github",
+        "CollectionId": "Repos",       
+        "PairingCollectionId": "Pairing",
+        "DefaultSubscriptionId" : "",
+        "AzureTennant": "",
+        "AzureClientId": "",
+        "AzureClientSecret": "",
+        "GithubClientId": "",
+        "GithubClientSecret": ""
+    }
 }
